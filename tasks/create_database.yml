@@ -1,0 +1,18 @@
+---
+# tasks file for ansible-role-quay-high-availability
+
+# Provision an RDS Postgres Database
+
+- name: Basic mysql provisioning example
+  community.aws.rds:
+    command: create
+    instance_name: new-database
+    db_engine: MySQL
+    size: 10
+    instance_type: db.m1.small
+    username: mysql_admin
+    password: 1nsecure
+    tags:
+      Environment: testing
+      Application: cms
+

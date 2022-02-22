@@ -1,0 +1,25 @@
+---
+
+- name: Ensure firewalld is installed
+  become: true
+  package:
+    name: firewalld
+    state: latest
+
+- name: Ensure firewalld is started
+  become: true
+  systemd:
+    name: firewalld
+    state: started
+    enabled: true
+
+- name: Enable quay firewalld ports
+  become: true
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    zone: "public"
+    permanent: true
+    state: enabled
+  with_items:
+    - '443/tcp'
+    - '80/tcp'

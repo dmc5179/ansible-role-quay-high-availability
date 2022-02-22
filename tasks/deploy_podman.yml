@@ -1,0 +1,13 @@
+---
+
+- name: Install podman and dependencies
+  become: true
+  ansible.builtin.package:
+    name:
+      - podman
+      - jq
+      - git
+      - make
+      - golang
+      - dnsmasq
+    state: latest

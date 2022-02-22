@@ -1,0 +1,244 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Template for the RDS database used by quay
+
+Parameters:
+
+  VpcCidr:
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/(1[6-9]|2[0-4]))$
+    ConstraintDescription: >-
+      CIDR block parameter must be in the form x.x.x.x/16-24.
+    Description: >-
+      CIDR block for VPC.
+    Default: 10.0.0.0/16
+    Type: String
+
+  DBName:
+    Type: String
+
+  DBUsername:
+    Type: String
+
+  DBClass:
+    Type: String
+
+  DBSecurityGroup:
+    Type: String
+
+  DBAllocatedStorage:
+    Type: String
+
+  DBPassword:
+    Type: String
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "Database Configuration"
+        Parameters:
+          - DBName
+          - DBUsername
+          - DBClass
+          - DBSecurityGroup
+          - DBAllocatedStorage
+          - DBPassword
+      - Label:
+          default: "Network Configuration"
+        Parameters:
+          - VpcCidr
+
+Resources:
+
+  QuayRDSEC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: "quay rds access"
+      GroupDescription: "Enable access to the backend quay postgres RDS instance"
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: !Ref VpcCidr
+
+  DBSecurityGroup:
+    Type: AWS::RDS::DBSecurityGroup
+    Properties:
+      GroupDescription: "Ingress for Amazon EC2 security group"
+      DBSecurityGroupIngress:
+        - EC2SecurityGroupName: !Ref QuayRDSEC2SecurityGroup
+
+  Database:
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllowMajorVersionUpgrade: false
+      AutoMinorVersionUpgrade: true
+      CopyTagsToSnapshot: true
+#      EnableIAMDatabaseAuthentication: !Ref EnableIAMDatabaseAuthentication
+      EngineVersion: !If [HasDBSnapshotIdentifier, !Ref 'AWS::NoValue', !Ref EngineVersion]
+#      KmsKeyId: !If [HasKmsKeyAndNotDBSnapshotIdentifier, {'Fn::ImportValue': !Sub '${ParentKmsKeyStack}-KeyId'}, !Ref 'AWS::NoValue']
+      BackupRetentionPeriod: !Ref DBBackupRetentionPeriod
+#      DBSnapshotIdentifier: !If [HasDBSnapshotIdentifier, !Ref DBSnapshotIdentifier, !Ref 'AWS::NoValue']
+      MultiAZ: true
+      OptionGroupName: !If [HasDBOptionGroupName, !Ref DBOptionGroupName, !Ref 'AWS::NoValue']
+      PreferredBackupWindow: !Ref PreferredBackupWindow
+      PreferredMaintenanceWindow: "Sun:05:00-Sun:06:00"
+      StorageType: gp2
+      StorageEncrypted: !If [HasDBSnapshotIdentifier, !Ref 'AWS::NoValue', !If [HasKmsKey, true, false]]
+      VPCSecurityGroups:
+      - !Ref DatabaseSecurityGroup
+      DBName: !Ref DBName
+      Engine: postgres
+      MasterUsername: !Ref DBUsername
+      DBInstanceClass: !Ref DBClass
+      DBSecurityGroups: !Ref DBSecurityGroup
+      AllocatedStorage: !Ref DBAllocatedStorage
+      MasterUserPassword: !Ref DBPassword
+
+#  DatabaseBurstBalanceTooLowAlarm:
+#    Condition: HasAlertTopic
+#    Type: 'AWS::CloudWatch::Alarm'
+#    Properties:
+#      AlarmActions:
+#      - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+#      AlarmDescription: 'Average database storage burst balance over last 10 minutes too low, expect a significant performance drop soon.'
+#      ComparisonOperator: LessThanThreshold
+#      Dimensions:
+#      - Name: DBInstanceIdentifier
+#        Value: !Ref DBInstance
+#      EvaluationPeriods: 1
+#      MetricName: BurstBalance
+#      Namespace: 'AWS/RDS'
+#      OKActions:
+#      - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+#      Period: 600
+#      Statistic: Average
+#      Threshold: 20
+#  DatabaseCPUUtilizationTooHighAlarm:
+#    Condition: HasAlertTopic
+#    Type: 'AWS::CloudWatch::Alarm'
+#    Properties:
+#      AlarmActions:
+#      - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+#      AlarmDescription: 'Average database CPU utilization over last 10 minutes too high.'
+#      ComparisonOperator: GreaterThanThreshold
+#      Dimensions:
+#      - Name: DBInstanceIdentifier
+#        Value: !Ref DBInstance
+#      EvaluationPeriods: 1
+#      MetricName: CPUUtilization
+#      Namespace: 'AWS/RDS'
+#      OKActions:
+#      - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+#      Period: 600
+#      Statistic: Average
+#      Threshold: 80
+#  DatabaseCPUCreditBalanceTooLowAlarm:
+#    Condition: HasAlertTopic
+#    Type: 'AWS::CloudWatch::Alarm'
+#    Properties:
+#      AlarmActions:
+#      - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+#      AlarmDescription: 'Average database CPU credit balance over last 10 minutes too low, expect a significant performance drop soon.'
+#      ComparisonOperator: LessThanThreshold
+#      Dimensions:
+#      - Name: DBInstanceIdentifier
+#        Value: !Ref DBInstance
+#      EvaluationPeriods: 1
+#      MetricName: CPUCreditBalance
+#      Namespace: 'AWS/RDS'
+#      OKActions:
+#      - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+#      Period: 600
+#      Statistic: Average
+#      Threshold: 20
+#  DatabaseDiskQueueDepthTooHighAlarm:
+#    Condition: HasAlertTopic
+#    Type: 'AWS::CloudWatch::Alarm'
+#    Properties:
+#      AlarmActions:
+#      - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+#      AlarmDescription: 'Average database disk queue depth over last 10 minutes too high, performance may suffer.'
+#      ComparisonOperator: GreaterThanThreshold
+#      Dimensions:
+#      - Name: DBInstanceIdentifier
+#        Value: !Ref DBInstance
+#      EvaluationPeriods: 1
+#      MetricName: DiskQueueDepth
+#      Namespace: 'AWS/RDS'
+#      OKActions:
+#      - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+#      Period: 600
+#      Statistic: Average
+#      Threshold: 64
+#  DatabaseFreeableMemoryTooLowAlarm:
+#    Condition: HasAlertTopic
+#    Type: 'AWS::CloudWatch::Alarm'
+#    Properties:
+#      AlarmActions:
+#      - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+#      AlarmDescription: 'Average database freeable memory over last 10 minutes too low, performance may suffer.'
+#      ComparisonOperator: LessThanThreshold
+#      Dimensions:
+#      - Name: DBInstanceIdentifier
+#        Value: !Ref DBInstance
+#      EvaluationPeriods: 1
+#      MetricName: FreeableMemory
+#      Namespace: 'AWS/RDS'
+#      OKActions:
+#      - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+#      Period: 600
+#      Statistic: Average
+#      Threshold: 64000000 # 64 Megabyte in Byte
+#  DatabaseFreeStorageSpaceTooLowAlarm:
+#    Condition: HasAlertTopic
+#    Type: 'AWS::CloudWatch::Alarm'
+#    Properties:
+#      AlarmActions:
+#      - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+#      AlarmDescription: 'Average database free storage space over last 10 minutes too low.'
+#      ComparisonOperator: LessThanThreshold
+#      Dimensions:
+#      - Name: DBInstanceIdentifier
+#        Value: !Ref DBInstance
+#      EvaluationPeriods: 1
+#      MetricName: FreeStorageSpace
+#      Namespace: 'AWS/RDS'
+#      OKActions:
+#      - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+#      Period: 600
+#      Statistic: Average
+#      Threshold: 2000000000 # 2 Gigabyte in Byte
+#  DatabaseSwapUsageTooHighAlarm:
+#    Condition: HasAlertTopic
+#    Type: 'AWS::CloudWatch::Alarm'
+#    Properties:
+#      AlarmActions:
+#      - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+#      AlarmDescription: 'Average database swap usage over last 10 minutes too high, performance may suffer.'
+#      ComparisonOperator: GreaterThanThreshold
+#      Dimensions:
+#      - Name: DBInstanceIdentifier
+#        Value: !Ref DBInstance
+#      EvaluationPeriods: 1
+#      MetricName: SwapUsage
+#      Namespace: 'AWS/RDS'
+#      OKActions:
+#      - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+#      Period: 600
+#      Statistic: Average
+#      Threshold: 256000000 # 256 Megabyte in Byte
+#  DatabaseEventSubscription:
+#    Condition: HasAlertTopic
+#    Type: 'AWS::RDS::EventSubscription'
+#    Properties:
+#      EventCategories:
+#      - failover
+#      - failure
+#      - 'low storage'
+#      - maintenance
+#      - 'read replica'
+#      - recovery
+#      SnsTopicArn: {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+#      SourceIds: [!Ref DBInstance]
+#      SourceType: 'db-instance'
