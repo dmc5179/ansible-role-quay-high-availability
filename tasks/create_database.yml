@@ -3,16 +3,29 @@
 
 # Provision an RDS Postgres Database
 
-- name: Basic mysql provisioning example
-  community.aws.rds:
-    command: create
-    instance_name: new-database
-    db_engine: MySQL
-    size: 10
-    instance_type: db.m1.small
-    username: mysql_admin
-    password: 1nsecure
-    tags:
-      Environment: testing
-      Application: cms
+- name: Deploy bootstrap Cloudformation stack
+  delegate_to: localhost
+  amazon.aws.cloudformation:
+    aws_access_key: "{{ ansible_env.AWS_ACCESS_KEY_ID | default(omit) }}"
+    aws_secret_key: "{{ ansible_env.AWS_SECRET_ACCESS_KEY | default(omit) }}"
+    security_token: "{{ ansible_env.AWS_SESSION_TOKEN | default(omit) }}"
+    region: "{{ ansible_env.AWS_DEFAULT_REGION | default(omit) }}"
+    #ec2_url: "{{ cloudformation_endpoint | default(omit) }}"
+    validate_certs: "{{ aws_ssl_enabled }}"
+    stack_name: "{{ bootstrap_stack_name }}"
+    state: present
+    disable_rollback: true
+    create_timeout: 5
+    template: "templates/database.yaml"
+    template_parameters:
+      DBName: "{{ postgresql_db }}"
+      DBUsername: "{{ postgresql_user }}"
+      DBInstanceClass: "{{ rds_instance_class }}"
+      DBSecurityGroup: "{{ rds_sg }}"
+      DBAllocatedStorage: "{{ rds_storage_size }}"
+      DBPassword: "{{ postgresql_password }}"
+      VpcCidr: "{{ vpc_cidr }}"
+  register: database_stack_outputs
+  tags:
+    - database
 

@@ -13,22 +13,51 @@ Parameters:
     Type: String
 
   DBName:
+    Default: "quay"
+    Description: My database
     Type: String
+    MinLength: '1'
+    MaxLength: '64'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: Must begin with a letter and contain only alphanumeric characters.
 
-  DBUsername:
+  DBInstanceClass:
+    Default: db.m5.large
+    Description: DB instance class
     Type: String
-
-  DBClass:
-    Type: String
-
-  DBSecurityGroup:
-    Type: String
+    ConstraintDescription: Must select a valid DB instance type.
+    AllowedValues:
+      - "db.m5.large"
 
   DBAllocatedStorage:
+    Default: '50'
+    Description: The size of the database (GiB)
+    Type: Number
+    MinValue: '20'
+    MaxValue: '65536'
+    ConstraintDescription: must be between 20 and 65536 GiB.
+
+  DBBackupRetentionPeriod:
+    Type: Integer
+    Default: 14
+
+  DBUsername:
+    NoEcho: 'true'
+    Description: Username for postgres database access
     Type: String
+    MinLength: '1'
+    MaxLength: '16'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: must begin with a letter and contain only alphanumeric characters.
 
   DBPassword:
+    NoEcho: 'true'
+    Description: Password postgres database access
     Type: String
+    MinLength: '8'
+    MaxLength: '41'
+    AllowedPattern: '[a-zA-Z0-9]*'
+    ConstraintDescription: must contain only alphanumeric characters.
 
 Metadata:
   AWS::CloudFormation::Interface:
@@ -36,12 +65,12 @@ Metadata:
       - Label:
           default: "Database Configuration"
         Parameters:
-          - DBName
-          - DBUsername
-          - DBClass
-          - DBSecurityGroup
-          - DBAllocatedStorage
           - DBPassword
+          - DBUsername
+          - DBBackupRetentionPeriod
+          - DBAllocatedStorage
+          - DBInstanceClass
+          - DBName
       - Label:
           default: "Network Configuration"
         Parameters:
@@ -75,24 +104,26 @@ Resources:
       AutoMinorVersionUpgrade: true
       CopyTagsToSnapshot: true
 #      EnableIAMDatabaseAuthentication: !Ref EnableIAMDatabaseAuthentication
-      EngineVersion: !If [HasDBSnapshotIdentifier, !Ref 'AWS::NoValue', !Ref EngineVersion]
+      #EngineVersion: !If [HasDBSnapshotIdentifier, !Ref 'AWS::NoValue', !Ref EngineVersion]
+      EngineVersion: 10.1
 #      KmsKeyId: !If [HasKmsKeyAndNotDBSnapshotIdentifier, {'Fn::ImportValue': !Sub '${ParentKmsKeyStack}-KeyId'}, !Ref 'AWS::NoValue']
       BackupRetentionPeriod: !Ref DBBackupRetentionPeriod
 #      DBSnapshotIdentifier: !If [HasDBSnapshotIdentifier, !Ref DBSnapshotIdentifier, !Ref 'AWS::NoValue']
       MultiAZ: true
-      OptionGroupName: !If [HasDBOptionGroupName, !Ref DBOptionGroupName, !Ref 'AWS::NoValue']
-      PreferredBackupWindow: !Ref PreferredBackupWindow
-      PreferredMaintenanceWindow: "Sun:05:00-Sun:06:00"
-      StorageType: gp2
-      StorageEncrypted: !If [HasDBSnapshotIdentifier, !Ref 'AWS::NoValue', !If [HasKmsKey, true, false]]
+      #OptionGroupName: !If [HasDBOptionGroupName, !Ref DBOptionGroupName, !Ref 'AWS::NoValue']
+      #PreferredBackupWindow: !Ref PreferredBackupWindow
+      #PreferredMaintenanceWindow: "Sun:05:00-Sun:06:00"
+      #StorageType: gp2
+      #StorageEncrypted: !If [HasDBSnapshotIdentifier, !Ref 'AWS::NoValue', !If [HasKmsKey, true, false]]
       VPCSecurityGroups:
       - !Ref DatabaseSecurityGroup
       DBName: !Ref DBName
       Engine: postgres
       MasterUsername: !Ref DBUsername
-      DBInstanceClass: !Ref DBClass
+      DBInstanceClass: !Ref DBInstanceClass
       DBSecurityGroups: !Ref DBSecurityGroup
       AllocatedStorage: !Ref DBAllocatedStorage
+      MaxAllocatedStorage: !Ref MaxAllocatedStorage
       MasterUserPassword: !Ref DBPassword
 
 #  DatabaseBurstBalanceTooLowAlarm:

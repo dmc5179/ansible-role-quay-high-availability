@@ -1,2 +1,12 @@
 ---
 # defaults file for ansible-role-quay-high-availability
+
+aws_ssl_enabled: true
+
+postgresql_db: 'quay'
+postgresql_user: 'quayuser'
+rds_instance_class: 'db.m5.large'
+rds_storage_size: 100
+postgresql_password: 'quaypass'
+vpc_cidr: '172.31.0.0/16'
+
