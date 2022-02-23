@@ -1,156 +1,69 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Template for OpenShift Cluster Node Launch (EC2 master instances)
+Description: Template for Quay on RHEL HA
 
 Parameters:
-  InfrastructureName:
-    AllowedPattern: ^([a-zA-Z][a-zA-Z0-9\-]{0,26})$
-    MaxLength: 27
-    MinLength: 1
-    ConstraintDescription: >-
-      Infrastructure name must be alphanumeric, start with a letter, and have
-      a maximum of 27 characters.
-    Description: >-
-      A short, unique cluster ID used to tag cloud resources and identify items
-      owned or used by the cluster. You should use the value generated when
-      creating the manifest files using `openshift-install create manifests`.
-    Type: String
 
-  RhcosAmi:
+  VpcId:
     Description: >-
-      Current Red Hat Enterprise Linux CoreOS AMI to use for bootstrap.
+      The VPC-scoped resources will belong to this VPC.
+    Type: AWS::EC2::VPC::Id
+
+  RHELAmi:
+    Description: >-
+      Current Red Hat Enterprise Linux AMI to use.
     Type: AWS::EC2::Image::Id
 
-#  AutoRegisterELB:
-#    AllowedValues:
-#      - "yes"
-#      - "no"
-#    Description: >-
-#      Do you want to invoke NLB registration, which requires a Lambda ARN parameter?
-#    Default: "yes"
-#    Type: String
-
-  Master0Subnet:
+  KeyName:
     Description: >-
-      The subnet to launch the first master node into.
+      EC2 key pair name
+    Type: String
+
+  Quay0Subnet:
+    Description: >-
+      The subnet to launch the first quay node into.
     Type: AWS::EC2::Subnet::Id
 
-  Master1Subnet:
+  Quay1Subnet:
     Description: >-
-      The subnet to launch the second master node into.
+      The subnet to launch the second quay node into.
     Type: AWS::EC2::Subnet::Id
 
-  Master2Subnet:
+  Quay2Subnet:
     Description: >-
-      The subnet to launch the third master node into.
+      The subnet to launch the third quay node into.
     Type: AWS::EC2::Subnet::Id
 
-  MasterSecurityGroupId:
+  QuaySecurityGroupId:
     Description: >-
-      The master security group ID.
+      The quay security group ID.
     Type: AWS::EC2::SecurityGroup::Id
 
-  IgnitionLocation:
-    Description: >-
-      Ignition config file location, such as
-      https://api-int.$CLUSTER_NAME.$DOMAIN:22623/config/master
-    Type: String
-
-  IgnitionVersion:
-    Description: >-
-      Ignition version
-    Type: String
-
-#  CertificateAuthorities:
+#  QuayInstanceProfileName:
 #    Description: >-
-#      Base64 encoded certificate authority string to use, such as
-#      data:text/plain;charset=utf-8;base64,ABC...xYz==. You should use the
-#      value generated when creating the ignition config files using
-#      `openshift-install create ignition-configs`.
+#      IAM profile to associate with quay nodes.
 #    Type: String
 
-  MasterInstanceProfileName:
-    Description: >-
-      IAM profile to associate with master nodes.
-    Type: String
-
-  MasterInstanceType:
-    AllowedValues:
-      - "m4.xlarge"
-      - "m4.2xlarge"
-      - "m4.4xlarge"
-      - "m4.8xlarge"
-      - "m4.10xlarge"
-      - "m4.16xlarge"
-      - "c4.2xlarge"
-      - "c4.4xlarge"
-      - "c4.8xlarge"
-      - "r4.xlarge"
-      - "r4.2xlarge"
-      - "r4.4xlarge"
-      - "r4.8xlarge"
-      - "r4.16xlarge"
-      - "m5.xlarge"
-      - "m5.2xlarge"
-      - "m5.4xlarge"
-      - "m5.8xlarge"
-      - "m5.10xlarge"
-      - "m5.16xlarge"
-      - "c5.2xlarge"
-      - "c5.4xlarge"
-      - "c5.8xlarge"
-      - "r5.xlarge"
-      - "r5.2xlarge"
-      - "r5.4xlarge"
-      - "r5.8xlarge"
-      - "r5.16xlarge"
+  QuayInstanceType:
     Default: m5.xlarge
     Type: String
-
-#  RegisterNlbIpTargetsLambdaArn:
-#    Description: >-
-#      ARN for NLB IP target registration lambda.
-#    Type: String
-
-#  ExternalApiTargetGroupArn:
-#    Description: >-
-#      ARN for external API load balancer target group.
-#    Type: String
-
-#  InternalApiTargetGroupArn:
-#    Description: >-
-#      ARN for internal API load balancer target group.
-#    Type: String
-
-#  InternalServiceTargetGroupArn:
-#    Description: >-
-#      ARN for internal service load balancer target group.
-#    Type: String
 
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
       - Label:
-          default: "Cluster Information"
-        Parameters:
-          - InfrastructureName
-      - Label:
           default: "Host Information"
         Parameters:
-          - MasterInstanceType
-          - RhcosAmi
-          - IgnitionLocation
-          - IgnitionVersion
-#          - CertificateAuthorities
-          - MasterSecurityGroupId
-          - MasterInstanceProfileName
+          - QuayInstanceType
+          - RHELAmi
+          - QuaySecurityGroupId
+          #- QuayInstanceProfileName
       - Label:
           default: "Network Configuration"
         Parameters:
           - VpcId
-          - AllowedBootstrapSshCidr
-          - Master0Subnet
-          - Master1Subnet
-          - Master2Subnet
+          - Quay0Subnet
+          - Quay1Subnet
+          - Quay2Subnet
 #      - Label:
 #          default: "Load Balancer Automation"
 #        Parameters:
@@ -160,212 +73,121 @@ Metadata:
 #          - InternalApiTargetGroupArn
 #          - InternalServiceTargetGroupArn
     ParameterLabels:
-      InfrastructureName:
-        default: "Infrastructure Name"
       VpcId:
         default: "VPC ID"
-      Master0Subnet:
-        default: "Master-0 Subnet"
-      Master1Subnet:
-        default: "Master-1 Subnet"
-      Master2Subnet:
-        default: "Master-2 Subnet"
-      MasterInstanceType:
-        default: "Master Instance Type"
-      MasterInstanceProfileName:
-        default: "Master Instance Profile Name"
-      RhcosAmi:
+      Quay0Subnet:
+        default: "Quay-0 Subnet"
+      Quay1Subnet:
+        default: "Quay-1 Subnet"
+      Quay2Subnet:
+        default: "Quay-2 Subnet"
+      QuayInstanceType:
+        default: "Quay Instance Type"
+      #QuayInstanceProfileName:
+      #  default: "Quay Instance Profile Name"
+      RHELAmi:
         default: "Red Hat Enterprise Linux CoreOS AMI ID"
-      IgnitionLocation:
-        default: "Master Ignition Source"
-      IgnitionVersion:
-        default: "Ignition version number"
-#      CertificateAuthorities:
-#        default: "Ignition CA String"
-      MasterSecurityGroupId:
-        default: "Master Security Group ID"
-      AutoRegisterELB:
-        default: "Use Provided ELB Automation"
+      QuaySecurityGroupId:
+        default: "Quay Security Group ID"
 
 #Conditions:
 #  DoRegistration: !Equals ["yes", !Ref AutoRegisterELB]
 
 Resources:
-  Master0:
+  Quay0:
     Type: AWS::EC2::Instance
     Properties:
-      ImageId: !Ref RhcosAmi
+      ImageId: !Ref RHELAmi
+      KeyName: !Ref KeyName
       BlockDeviceMappings:
       - DeviceName: /dev/xvda
         Ebs:
-          VolumeSize: "120"
+          VolumeSize: "50"
           VolumeType: "gp2"
-      IamInstanceProfile: !Ref MasterInstanceProfileName
-      InstanceType: !Ref MasterInstanceType
+      #IamInstanceProfile: !Ref QuayInstanceProfileName
+      InstanceType: !Ref QuayInstanceType
       NetworkInterfaces:
-        - AssociatePublicIpAddress: "false"
+        - AssociatePublicIpAddress: "true"
           DeviceIndex: "0"
           GroupSet:
-            - !Ref "MasterSecurityGroupId"
-          SubnetId: !Ref "Master0Subnet"
+            - !Ref "QuaySecurityGroupId"
+          SubnetId: !Ref "Quay0Subnet"
       UserData:
-        Fn::Base64: !Sub [
-          '{"ignition":{"config":{"replace":{"source":"${S3Loc}","verification":{}}},"timeouts":{},"version":"${IGN_VER}"},"networkd":{},"passwd":{},"storage":{},"systemd":{}}',
-          {
-            S3Loc: !Ref IgnitionLocation,
-            IGN_VER: !Ref IgnitionVersion
-          }
-        ]
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash
+            sudo dnf -y update
+            sudo dnf -y install podman vim firewalld python3
       Tags:
         - Key: Name
-          Value: !Join ["-", [!Ref InfrastructureName, "master", "0"]]
-        - Key: !Join ["", ["kubernetes.io/cluster/", !Ref InfrastructureName]]
-          Value: "owned"
+          Value: !Join ["-", ["quay", "0"]]
 
-#  RegisterMaster0:
-#    Condition: DoRegistration
-#    Type: Custom::NLBRegister
-#    Properties:
-#      ServiceToken: !Ref RegisterNlbIpTargetsLambdaArn
-#      TargetArn: !Ref ExternalApiTargetGroupArn
-#      TargetIp: !GetAtt Master0.PrivateIp
-
-#  RegisterMaster0InternalApiTarget:
-#    Condition: DoRegistration
-#    Type: Custom::NLBRegister
-#    Properties:
-#      ServiceToken: !Ref RegisterNlbIpTargetsLambdaArn
-#      TargetArn: !Ref InternalApiTargetGroupArn
-#      TargetIp: !GetAtt Master0.PrivateIp
-
-#  RegisterMaster0InternalServiceTarget:
-#    Condition: DoRegistration
-#    Type: Custom::NLBRegister
-#    Properties:
-#      ServiceToken: !Ref RegisterNlbIpTargetsLambdaArn
-#      TargetArn: !Ref InternalServiceTargetGroupArn
-#      TargetIp: !GetAtt Master0.PrivateIp
-
-  Master1:
+  Quay1:
     Type: AWS::EC2::Instance
     Properties:
-      ImageId: !Ref RhcosAmi
+      ImageId: !Ref RHELAmi
+      KeyName: !Ref KeyName
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
-            VolumeSize: "120"
+            VolumeSize: "50"
             VolumeType: "gp2"
-      IamInstanceProfile: !Ref MasterInstanceProfileName
-      InstanceType: !Ref MasterInstanceType
+      #IamInstanceProfile: !Ref QuayInstanceProfileName
+      InstanceType: !Ref QuayInstanceType
       NetworkInterfaces:
-        - AssociatePublicIpAddress: "false"
+        - AssociatePublicIpAddress: "true"
           DeviceIndex: "0"
           GroupSet:
-            - !Ref "MasterSecurityGroupId"
-          SubnetId: !Ref "Master1Subnet"
+            - !Ref "QuaySecurityGroupId"
+          SubnetId: !Ref "Quay1Subnet"
       UserData:
-        Fn::Base64: !Sub [
-          '{"ignition":{"config":{"replace":{"source":"${S3Loc}","verification":{}}},"timeouts":{},"version":"${IGN_VER}"},"networkd":{},"passwd":{},"storage":{},"systemd":{}}',
-          {
-            S3Loc: !Ref IgnitionLocation,
-            IGN_VER: !Ref IgnitionVersion
-          }
-        ]
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash
+            sudo dnf -y update
+            sudo dnf -y install podman vim firewalld python3
       Tags:
         - Key: Name
-          Value: !Join ["-", [!Ref InfrastructureName, "master", "1"]]
-        - Key: !Join ["", ["kubernetes.io/cluster/", !Ref InfrastructureName]]
-          Value: "owned"
+          Value: !Join ["-", ["quay", "1"]]
 
-#  RegisterMaster1:
-#    Condition: DoRegistration
-#    Type: Custom::NLBRegister
-#    Properties:
-#      ServiceToken: !Ref RegisterNlbIpTargetsLambdaArn
-#      TargetArn: !Ref ExternalApiTargetGroupArn
-#      TargetIp: !GetAtt Master1.PrivateIp
-
-#  RegisterMaster1InternalApiTarget:
-#    Condition: DoRegistration
-#    Type: Custom::NLBRegister
-#    Properties:
-#      ServiceToken: !Ref RegisterNlbIpTargetsLambdaArn
-#      TargetArn: !Ref InternalApiTargetGroupArn
-#      TargetIp: !GetAtt Master1.PrivateIp
-
-#  RegisterMaster1InternalServiceTarget:
-#    Condition: DoRegistration
-#    Type: Custom::NLBRegister
-#    Properties:
-#      ServiceToken: !Ref RegisterNlbIpTargetsLambdaArn
-#      TargetArn: !Ref InternalServiceTargetGroupArn
-#      TargetIp: !GetAtt Master1.PrivateIp
-
-  Master2:
+  Quay2:
     Type: AWS::EC2::Instance
     Properties:
-      ImageId: !Ref RhcosAmi
+      ImageId: !Ref RHELAmi
+      KeyName: !Ref KeyName
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
-            VolumeSize: "120"
+            VolumeSize: "50"
             VolumeType: "gp2"
-      IamInstanceProfile: !Ref MasterInstanceProfileName
-      InstanceType: !Ref MasterInstanceType
+      #IamInstanceProfile: !Ref QuayInstanceProfileName
+      InstanceType: !Ref QuayInstanceType
       NetworkInterfaces:
-        - AssociatePublicIpAddress: "false"
+        - AssociatePublicIpAddress: "true"
           DeviceIndex: "0"
           GroupSet:
-            - !Ref "MasterSecurityGroupId"
-          SubnetId: !Ref "Master2Subnet"
+            - !Ref "QuaySecurityGroupId"
+          SubnetId: !Ref "Quay2Subnet"
       UserData:
-        Fn::Base64: !Sub [
-          '{"ignition":{"config":{"replace":{"source":"${S3Loc}","verification":{}}},"timeouts":{},"version":"${IGN_VER}"},"networkd":{},"passwd":{},"storage":{},"systemd":{}}',
-          {
-            S3Loc: !Ref IgnitionLocation,
-            IGN_VER: !Ref IgnitionVersion
-          }
-        ]
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash
+            sudo dnf -y update
+            sudo dnf -y install podman vim firewalld python3
       Tags:
         - Key: Name
-          Value: !Join ["-", [!Ref InfrastructureName, "master", "2"]]
-        - Key: !Join ["", ["kubernetes.io/cluster/", !Ref InfrastructureName]]
-          Value: "owned"
-
-#  RegisterMaster2:
-#    Condition: DoRegistration
-#    Type: Custom::NLBRegister
-#    Properties:
-#      ServiceToken: !Ref RegisterNlbIpTargetsLambdaArn
-#      TargetArn: !Ref ExternalApiTargetGroupArn
-#      TargetIp: !GetAtt Master2.PrivateIp
-
-#  RegisterMaster2InternalApiTarget:
-#    Condition: DoRegistration
-#    Type: Custom::NLBRegister
-#    Properties:
-#      ServiceToken: !Ref RegisterNlbIpTargetsLambdaArn
-#      TargetArn: !Ref InternalApiTargetGroupArn
-#      TargetIp: !GetAtt Master2.PrivateIp
-
-#  RegisterMaster2InternalServiceTarget:
-#    Condition: DoRegistration
-#    Type: Custom::NLBRegister
-#    Properties:
-#      ServiceToken: !Ref RegisterNlbIpTargetsLambdaArn
-#      TargetArn: !Ref InternalServiceTargetGroupArn
-#      TargetIp: !GetAtt Master2.PrivateIp
+          Value: !Join ["-", ["quay", "2"]]
 
 Outputs:
 
-  Master0PrivateIp:
-    Description: The master 0 node private IP address.
-    Value: !GetAtt Master0.PrivateIp
+  Quay0PrivateIp:
+    Description: The quay 0 node private IP address.
+    Value: !GetAtt Quay0.PrivateIp
 
-  Master1PrivateIp:
-    Description: The master 1 node private IP address.
-    Value: !GetAtt Master1.PrivateIp
+  Quay1PrivateIp:
+    Description: The quay 1 node private IP address.
+    Value: !GetAtt Quay1.PrivateIp
 
-  Master2PrivateIp:
-    Description: The master 2 node private IP address.
-    Value: !GetAtt Master2.PrivateIp
+  Quay2PrivateIp:
+    Description: The quay 2 node private IP address.
+    Value: !GetAtt Quay2.PrivateIp

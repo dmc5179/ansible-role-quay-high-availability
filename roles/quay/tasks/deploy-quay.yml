@@ -1,0 +1,53 @@
+---
+
+- name: Copy quay template in place
+  template:
+    src: config.yaml.j2
+    dest: '{{ quay_root_dir }}/config/config.yaml'
+
+- name: Start quay
+  containers.podman.podman_container:
+    name: quay
+    image: registry.redhat.io/quay/quay-rhel8:v3.5.1
+    state: started
+    restart: true
+    restart_policy: "always"
+    command: "repomirror"
+    sysctl:
+      net.core.somaxconn: 4096
+    ports:
+#      - "8080:8080"
+      - "{{ quay_https_port }}:8443"
+    volume:
+      - "{{ quay_root_dir }}/config:/conf/stack:Z"
+      - "{{ quay_root_dir }}/storage:/datastorage:Z"
+  tags:
+    - quay
+
+- name: Create quay systemd service file
+  command: >
+    podman generate systemd -n -f quay
+  args:
+    chdir: '/tmp/'
+
+- name: Write quay systemd unit file
+  copy:
+    src: '/tmp/container-quay.service'
+    dest: '/usr/lib/systemd/system/container-quay.service'
+    remote_src: true
+
+- name: Remove temp unit file
+  file:
+    path: '/tmp/container-quay.service'
+    state: absent
+
+- name: Start quay after the postgresql-quay container service
+  community.general.ini_file:
+    path: /usr/lib/systemd/system/container-quay.service
+    section: Unit
+    option: After
+    value: 'network-online.target,container-postgresql-quay.service'
+
+- name: Force systemd to reread configs
+  ansible.builtin.systemd:
+    daemon_reload: true

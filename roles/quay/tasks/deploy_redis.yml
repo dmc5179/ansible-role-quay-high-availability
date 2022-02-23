@@ -11,6 +11,7 @@
       - "6379:6379"
     env:
       REDIS_PASSWORD: "{{ redis_password }}"
+  when: ( podman )
 
 - name: Create redis systemd service file
   command: >
@@ -18,7 +19,7 @@
   args:
     chdir: '/tmp/'
 
-- name: Write redis systemd unit file
+- name: Write reids systemd unit file
   become: true
   copy:
     src: '/tmp/container-redis.service'

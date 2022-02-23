@@ -1,0 +1,12 @@
+---
+
+- hosts: localhost
+  gather_facts: true
+  become: false
+  tasks:
+
+    - name: Deploy EC2 Instances
+      import_role:
+        name: aws
+        tasks_from: create_instances.yml
+

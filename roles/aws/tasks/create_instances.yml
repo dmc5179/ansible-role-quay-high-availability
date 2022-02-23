@@ -1,0 +1,30 @@
+---
+
+- name: Deploy EC2 Instances
+  delegate_to: localhost
+  amazon.aws.cloudformation:
+    aws_access_key: "{{ ansible_env.AWS_ACCESS_KEY_ID | default(omit) }}"
+    aws_secret_key: "{{ ansible_env.AWS_SECRET_ACCESS_KEY | default(omit) }}"
+    security_token: "{{ ansible_env.AWS_SESSION_TOKEN | default(omit) }}"
+    region: "{{ ansible_env.AWS_DEFAULT_REGION | default(omit) }}"
+    #ec2_url: "{{ cloudformation_endpoint | default(omit) }}"
+    validate_certs: "{{ aws_ssl_enabled }}"
+    stack_name: "{{ ec2_stack_name }}"
+    state: present
+    disable_rollback: true
+    create_timeout: 15
+    template: "roles/aws/files/ec2_instances.yaml"
+    template_parameters:
+      RHELAmi: "ami-009ed7fcb93e10f3a"
+      Quay0Subnet: "{{ subnets[0].id }}"
+      Quay1Subnet: "{{ subnets[1].id }}"
+      Quay2Subnet: "{{ subnets[2].id }}"
+      QuaySecurityGroupId: 'sg-0f3890ca00e12121b'
+      #QuayInstanceProfileName:
+      QuayInstanceType: "m5.xlarge"
+      VpcId: "{{ vpc_id }}"
+      #VpcCidr: "{{ vpc_cidr }}"
+  register: ec2_stack_outputs
+  tags:
+    - ec2
+

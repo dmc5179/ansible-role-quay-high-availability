@@ -1,2 +1,5 @@
 ---
 # vars file for ansible-role-quay-high-availability
+
+rds_stack_name: "quayrds"
+ec2_stack_name: "quayec2"

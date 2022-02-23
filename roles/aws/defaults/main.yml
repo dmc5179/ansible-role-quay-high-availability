@@ -5,8 +5,10 @@ aws_ssl_enabled: true
 
 postgresql_db: 'quay'
 postgresql_user: 'quayuser'
-rds_instance_class: 'db.m5.large'
+rds_instance_class: 'db.m5.2xlarge'
 rds_storage_size: 100
 postgresql_password: 'quaypass'
+vpc_id: 'vpc-55515b3d'
 vpc_cidr: '172.31.0.0/16'
 
+rds_max_storage_size: 200

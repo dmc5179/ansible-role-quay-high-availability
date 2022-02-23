@@ -1,0 +1,5 @@
+---
+
+redis_hostname: 'redis.dns.podman'
+redis_password: 'strongpassword'
+

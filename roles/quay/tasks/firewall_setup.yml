@@ -22,4 +22,14 @@
     state: enabled
   with_items:
     - '443/tcp'
-    - '80/tcp'
+
+- name: Enable quay config firewalld ports
+  become: true
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    zone: "public"
+    permanent: true
+    state: enabled
+  with_items:
+    - '{{ quay_config_port }}/tcp'
+  when: ( quay_config_mode | bool )

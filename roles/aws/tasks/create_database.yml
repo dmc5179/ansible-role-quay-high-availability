@@ -3,7 +3,7 @@
 
 # Provision an RDS Postgres Database
 
-- name: Deploy bootstrap Cloudformation stack
+- name: Deploy RDS Instance
   delegate_to: localhost
   amazon.aws.cloudformation:
     aws_access_key: "{{ ansible_env.AWS_ACCESS_KEY_ID | default(omit) }}"
@@ -12,18 +12,19 @@
     region: "{{ ansible_env.AWS_DEFAULT_REGION | default(omit) }}"
     #ec2_url: "{{ cloudformation_endpoint | default(omit) }}"
     validate_certs: "{{ aws_ssl_enabled }}"
-    stack_name: "{{ bootstrap_stack_name }}"
+    stack_name: "{{ rds_stack_name }}"
     state: present
     disable_rollback: true
-    create_timeout: 5
-    template: "templates/database.yaml"
+    create_timeout: 15
+    template: "roles/aws/files/database.yaml"
     template_parameters:
       DBName: "{{ postgresql_db }}"
       DBUsername: "{{ postgresql_user }}"
       DBInstanceClass: "{{ rds_instance_class }}"
-      DBSecurityGroup: "{{ rds_sg }}"
       DBAllocatedStorage: "{{ rds_storage_size }}"
+      MaxAllocatedStorage: "{{ rds_max_storage_size }}"
       DBPassword: "{{ postgresql_password }}"
+      VpcId: "{{ vpc_id }}"
       VpcCidr: "{{ vpc_cidr }}"
   register: database_stack_outputs
   tags:

@@ -1,0 +1,39 @@
+---
+
+- hosts: all
+  gather_facts: true
+  become: false
+  tasks:
+
+    - name: Wait for the reboot to complete
+      wait_for_connection:
+        connect_timeout: 20
+        sleep: 5
+        delay: 5
+        timeout: 300
+
+    - name: Configure firewall
+      import_role:
+        name: quay
+        tasks_from: firewall_setup.yml
+
+    - name: Configure podman
+      import_role:
+        name: quay
+        tasks_from: deploy_podman.yml
+
+    - name: Configure redis
+      import_role:
+        name: quay
+        tasks_from: deploy_redis.yml
+
+    - name: Configure clair
+      import_role:
+        name: quay
+        tasks_from: quay-clair.yml
+
+    - name: Configure quay
+      import_role:
+        name: quay
+        tasks_from: deploy-quay
+
