@@ -1,0 +1,35 @@
+---
+
+- name: Get EC2 instance stack info
+  delegate_to: localhost
+  amazon.aws.cloudformation_info:
+    aws_access_key: "{{ ansible_env.AWS_ACCESS_KEY_ID | default(omit) }}"
+    aws_secret_key: "{{ ansible_env.AWS_SECRET_ACCESS_KEY | default(omit) }}"
+    security_token: "{{ ansible_env.AWS_SESSION_TOKEN | default(omit) }}"
+    region: "{{ ansible_env.AWS_DEFAULT_REGION | default(omit) }}"
+    #ec2_url: "{{ cloudformation_endpoint | default(omit) }}"
+    validate_certs: "{{ aws_ssl_enabled }}"
+    stack_name: "{{ ec2_stack_name }}"
+    stack_resources: true
+  register: ec2_stack_outputs
+
+#- debug:
+#    var: ec2_stack_outputs
+
+- name: Add quay01 host to inventory
+  add_host:
+    hostname: "quay01"
+    ansible_host: "{{ ec2_stack_outputs.cloudformation.quayec2.stack_outputs.Quay0PublicIp }}"
+    groups: quay
+
+- name: Add quay02 host to inventory
+  add_host:
+    hostname: "quay02"
+    ansible_host: "{{ ec2_stack_outputs.cloudformation.quayec2.stack_outputs.Quay1PublicIp }}"
+    groups: quay
+
+- name: Add quay03 host to inventory
+  add_host:
+    hostname: "quay03"
+    ansible_host: "{{ ec2_stack_outputs.cloudformation.quayec2.stack_outputs.Quay2PublicIp }}"
+    groups: quay
