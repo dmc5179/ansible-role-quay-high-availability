@@ -8,7 +8,7 @@
 - name: Start quay
   containers.podman.podman_container:
     name: quay
-    image: registry.redhat.io/quay/quay-rhel8:v3.5.1
+    image: "{{ quay_image }}"
     state: started
     restart: true
     restart_policy: "always"

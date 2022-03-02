@@ -26,7 +26,3 @@
       DBPassword: "{{ postgresql_password }}"
       VpcId: "{{ vpc_id }}"
       VpcCidr: "{{ vpc_cidr }}"
-  register: database_stack_outputs
-  tags:
-    - database
-

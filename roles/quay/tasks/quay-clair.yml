@@ -1,14 +1,18 @@
 ---
 
 - name: Make clair working directory
+  become: true
   file:
     path: "/etc/clairv4/config"
     state: directory
+    mode: "0755"
 
 - name: Deploy clair config
+  become: true
   template:
     src: templates/clairv4-config.j2
     dest: "/etc/clairv4/config/config.yaml"
+    mode: "0644"
 
 #- name: Copy the quay certificate into clair
 #  copy:
@@ -34,27 +38,49 @@
 #    msg: "CA certificate not on host at {{ quay_root_dir }}/config/extra_ca_certs/ca.crt"
 #  when: not _ca_cert_exist.stat.isreg
 
-- name: Create clair database
-  command: >
-    podman exec -it postgresql-quay /bin/bash -c 'echo "CREATE DATABASE clair" | psql -U postgres'
+- name: Install postgres modules
+  become: true
+  package:
+    name: "python3-psycopg2"
+    state: present
 
-- name: Grant privileges on clair database to quay user
-  command: >
-    podman exec -it postgresql-quay /bin/bash -c 'echo "GRANT ALL PRIVILEGES ON DATABASE clair TO quayuser" | psql -U postgres'
+- name: Create clair database
+  community.postgresql.postgresql_db:
+    login_host: "{{ postgresql_hostname }}"
+    login_password: "{{ postgresql_password }}"
+    login_user: "{{ postgresql_user }}"
+    owner: "{{ postgresql_user }}"
+    name: "clair"
+    state: present
+  run_once: true
+#  command: >
+#    podman exec -it postgresql-quay /bin/bash -c 'echo "CREATE DATABASE clair" | psql -U postgres'
+
+#- name: Grant privileges on clair database to quay user
+#  command: >
+#    podman exec -it postgresql-quay /bin/bash -c 'echo "GRANT ALL PRIVILEGES ON DATABASE clair TO quayuser" | psql -U postgres'
 
 - name: Enable uuid-ossp
-  command: >
-    podman exec -it postgresql-quay /bin/bash -c 'echo "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"" | psql -d clair -U postgres'
+  community.postgresql.postgresql_ext:
+    login_host: "{{ postgresql_hostname }}"
+    login_password: "{{ postgresql_password }}"
+    login_user: "{{ postgresql_user }}"
+    name: "uuid-ossp"
+    db: "clair"
+    state: present
+  run_once: true
+#  command: >
+#    podman exec -it postgresql-quay /bin/bash -c 'echo "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"" | psql -d clair -U postgres'
 
 - name: Start clair container
   containers.podman.podman_container:
     name: clair
-    image: registry.redhat.io/quay/clair-rhel8:v3.5.1
-    state: started
+    image: "{{ clair_image }}"
+    state: created
     restart: true
     restart_policy: "always"
-    sysctl:
-      net.core.somaxconn: 4096
+#    sysctl:
+#      net.core.somaxconn: 4096
     env:
       CLAIR_CONF: '/clair/config.yaml'
       CLAIR_MODE: 'combo'
@@ -63,6 +89,36 @@
       - "8089:8089"
     volume:
       - "/etc/clairv4/config:/clair"
+    generate_systemd:
+      path: /tmp/
+      restart_policy: always
+      time: 120
+      names: true
+      container_prefix: container
+
+- name: Write clair systemd unit file
+  become: true
+  copy:
+    src: '/tmp/container-clair.service'
+    dest: '/usr/lib/systemd/user/container-clair.service'
+    remote_src: true
+
+- name: Remove temp unit file
+  file:
+    path: '/tmp/container-clair.service'
+    state: absent
+
+- name: Force systemd to reread configs
+  become: true
+  ansible.builtin.systemd:
+    daemon_reload: true
+    scope: global
+
+- name: Ensure clair is started
+  ansible.builtin.systemd:
+    scope: global
+    state: started
+    name: container-clair
 
 - name: Wait for clair to start
   ansible.builtin.pause:

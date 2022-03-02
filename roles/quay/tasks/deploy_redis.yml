@@ -1,29 +1,48 @@
 ---
 
+- name: Set overcommit
+  become: true
+  ansible.posix.sysctl:
+    name: vm.overcommit_memory
+    value: '1'
+    sysctl_set: yes
+    state: present
+    reload: yes
+    sysctl_file: /etc/sysctl.d/99-redis.conf
+
+- name: Disable transparent huge pages
+  become: true
+  shell: "echo madvise > /sys/kernel/mm/transparent_hugepage/enabled"
+
 - name: Start redis container
   containers.podman.podman_container:
     name: redis
-    image: registry.redhat.io/rhel8/redis-5:1
-    state: started
+    image: "{{ redis_image }}"
+    state: created
     restart: true
     restart_policy: "always"
     ports:
       - "6379:6379"
     env:
       REDIS_PASSWORD: "{{ redis_password }}"
-  when: ( podman )
+    generate_systemd:
+      path: /tmp/
+      restart_policy: always
+      time: 120
+      names: true
+      container_prefix: container
 
-- name: Create redis systemd service file
-  command: >
-    podman generate systemd -n -f redis
-  args:
-    chdir: '/tmp/'
+#- name: Create redis systemd service file
+#  command: >
+#    podman generate systemd -n -f redis
+#  args:
+#    chdir: '/tmp/'
 
-- name: Write reids systemd unit file
+- name: Write redis systemd unit file
   become: true
   copy:
     src: '/tmp/container-redis.service'
-    dest: '/usr/lib/systemd/system/container-redis.service'
+    dest: '/usr/lib/systemd/user/container-redis.service'
     remote_src: true
 
 - name: Remove temp unit file
@@ -35,3 +54,10 @@
   become: true
   ansible.builtin.systemd:
     daemon_reload: true
+    scope: global
+
+- name: Ensure redis is started
+  ansible.builtin.systemd:
+    scope: global
+    state: started
+    name: container-redis
