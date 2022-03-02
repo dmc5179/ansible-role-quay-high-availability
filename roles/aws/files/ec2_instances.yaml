@@ -33,10 +33,10 @@ Parameters:
       The subnet to launch the third quay node into.
     Type: AWS::EC2::Subnet::Id
 
-  QuaySecurityGroupId:
-    Description: >-
-      The quay security group ID.
-    Type: AWS::EC2::SecurityGroup::Id
+#  QuaySecurityGroupId:
+#    Description: >-
+#      The quay security group ID.
+#    Type: AWS::EC2::SecurityGroup::Id
 
 #  QuayInstanceProfileName:
 #    Description: >-
@@ -93,7 +93,36 @@ Metadata:
 #Conditions:
 #  DoRegistration: !Equals ["yes", !Ref AutoRegisterELB]
 
+#Mappings:
+#  AWSAMIRegionMap:
+#    "us-east-1":
+#    "us-east-2":
+
 Resources:
+
+  QuaySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: "quay-external-access"
+      GroupDescription: External access to quay
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          ToPort: 443
+          FromPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: "Name"
+          Value: "quay-external-access"
+
   Quay0:
     Type: AWS::EC2::Instance
     Properties:
@@ -110,7 +139,10 @@ Resources:
         - AssociatePublicIpAddress: "true"
           DeviceIndex: "0"
           GroupSet:
-            - !Ref "QuaySecurityGroupId"
+            - !Ref QuaySecurityGroup
+            - "sg-c0cbf0af" # default
+            - "sg-0f3890ca00e12121b" # home
+#            - !Ref "QuaySecurityGroupId"
           SubnetId: !Ref "Quay0Subnet"
       UserData:
         Fn::Base64:
@@ -138,7 +170,10 @@ Resources:
         - AssociatePublicIpAddress: "true"
           DeviceIndex: "0"
           GroupSet:
-            - !Ref "QuaySecurityGroupId"
+            - !Ref QuaySecurityGroup
+            - "sg-c0cbf0af" # default
+            - "sg-0f3890ca00e12121b" # home
+#            - !Ref "QuaySecurityGroupId"
           SubnetId: !Ref "Quay1Subnet"
       UserData:
         Fn::Base64:
@@ -166,7 +201,10 @@ Resources:
         - AssociatePublicIpAddress: "true"
           DeviceIndex: "0"
           GroupSet:
-            - !Ref "QuaySecurityGroupId"
+            - !Ref QuaySecurityGroup
+            - "sg-c0cbf0af" # default
+            - "sg-0f3890ca00e12121b" # home
+#            - !Ref "QuaySecurityGroupId"
           SubnetId: !Ref "Quay2Subnet"
       UserData:
         Fn::Base64:
@@ -180,14 +218,14 @@ Resources:
 
 Outputs:
 
-  Quay0PrivateIp:
-    Description: The quay 0 node private IP address.
-    Value: !GetAtt Quay0.PrivateIp
+  Quay0PublicIp:
+    Description: The quay 0 node public IP address.
+    Value: !GetAtt Quay0.PublicIp
 
-  Quay1PrivateIp:
-    Description: The quay 1 node private IP address.
-    Value: !GetAtt Quay1.PrivateIp
+  Quay1PublicIp:
+    Description: The quay 1 node public IP address.
+    Value: !GetAtt Quay1.PublicIp
 
-  Quay2PrivateIp:
-    Description: The quay 2 node private IP address.
-    Value: !GetAtt Quay2.PrivateIp
+  Quay2PublicIp:
+    Description: The quay 2 node public IP address.
+    Value: !GetAtt Quay2.PublicIp
