@@ -127,7 +127,7 @@ Resources:
       CopyTagsToSnapshot: true
       #EnableIAMDatabaseAuthentication: !Ref EnableIAMDatabaseAuthentication
       #EngineVersion: !If [HasDBSnapshotIdentifier, !Ref 'AWS::NoValue', !Ref EngineVersion]
-      EngineVersion: 10.4
+      #EngineVersion: 10.5
       #KmsKeyId: !If [HasKmsKeyAndNotDBSnapshotIdentifier, {'Fn::ImportValue': !Sub '${ParentKmsKeyStack}-KeyId'}, !Ref 'AWS::NoValue']
       BackupRetentionPeriod: !Ref DBBackupRetentionPeriod
       #DBSnapshotIdentifier: !If [HasDBSnapshotIdentifier, !Ref DBSnapshotIdentifier, !Ref 'AWS::NoValue']

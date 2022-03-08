@@ -1,6 +1,6 @@
 ---
 
-- name: Set overcommit
+- name: Set overcommit kernel parameter in sysctl
   become: true
   ansible.posix.sysctl:
     name: vm.overcommit_memory
@@ -14,6 +14,11 @@
   become: true
   shell: "echo madvise > /sys/kernel/mm/transparent_hugepage/enabled"
 
+- name: Create user systemd service location
+  file:
+    path: "{{ ansible_env.HOME }}/.config/systemd/user"
+    state: directory
+
 - name: Start redis container
   containers.podman.podman_container:
     name: redis
@@ -26,38 +31,16 @@
     env:
       REDIS_PASSWORD: "{{ redis_password }}"
     generate_systemd:
-      path: /tmp/
+      path: "{{ ansible_env.HOME }}/.config/systemd/user"
       restart_policy: always
       time: 120
       names: true
       container_prefix: container
 
-#- name: Create redis systemd service file
-#  command: >
-#    podman generate systemd -n -f redis
-#  args:
-#    chdir: '/tmp/'
-
-- name: Write redis systemd unit file
-  become: true
-  copy:
-    src: '/tmp/container-redis.service'
-    dest: '/usr/lib/systemd/user/container-redis.service'
-    remote_src: true
-
-- name: Remove temp unit file
-  file:
-    path: '/tmp/container-redis.service'
-    state: absent
-
 - name: Force systemd to reread configs
-  become: true
   ansible.builtin.systemd:
     daemon_reload: true
-    scope: global
-
-- name: Ensure redis is started
-  ansible.builtin.systemd:
-    scope: global
+    scope: user
     state: started
+    enabled: true
     name: container-redis

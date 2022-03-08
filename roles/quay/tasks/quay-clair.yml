@@ -60,7 +60,7 @@
 #  command: >
 #    podman exec -it postgresql-quay /bin/bash -c 'echo "GRANT ALL PRIVILEGES ON DATABASE clair TO quayuser" | psql -U postgres'
 
-- name: Enable uuid-ossp
+- name: Enable uuid-ossp postgres extension
   community.postgresql.postgresql_ext:
     login_host: "{{ postgresql_hostname }}"
     login_password: "{{ postgresql_password }}"
@@ -71,6 +71,11 @@
   run_once: true
 #  command: >
 #    podman exec -it postgresql-quay /bin/bash -c 'echo "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"" | psql -d clair -U postgres'
+
+- name: Create user systemd service location
+  file:
+    path: "{{ ansible_env.HOME }}/.config/systemd/user"
+    state: directory
 
 - name: Start clair container
   containers.podman.podman_container:
@@ -90,34 +95,18 @@
     volume:
       - "/etc/clairv4/config:/clair"
     generate_systemd:
-      path: /tmp/
+      path: "{{ ansible_env.HOME }}/.config/systemd/user"
       restart_policy: always
       time: 120
       names: true
       container_prefix: container
 
-- name: Write clair systemd unit file
-  become: true
-  copy:
-    src: '/tmp/container-clair.service'
-    dest: '/usr/lib/systemd/user/container-clair.service'
-    remote_src: true
-
-- name: Remove temp unit file
-  file:
-    path: '/tmp/container-clair.service'
-    state: absent
-
 - name: Force systemd to reread configs
-  become: true
   ansible.builtin.systemd:
     daemon_reload: true
-    scope: global
-
-- name: Ensure clair is started
-  ansible.builtin.systemd:
-    scope: global
+    scope: user
     state: started
+    enabled: true
     name: container-clair
 
 - name: Wait for clair to start

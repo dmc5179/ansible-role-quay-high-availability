@@ -1,16 +1,87 @@
 ---
 
-- hosts: all
+- hosts: localhost
   gather_facts: true
   become: false
   tasks:
 
+    - name: Create Alert Cloudformation Stack
+      import_role:
+        name: aws
+        tasks_from: create_alerts.yml
+
+    - name: Deploy EC2 Instances
+      import_role:
+        name: aws
+        tasks_from: create_instances.yml
+
+    - name: Deploy RDS Instance
+      import_role:
+        name: aws
+        tasks_from: create_database.yml
+
+    - name: Get ec2 instance facts
+      import_role:
+        name: aws
+        tasks_from: instance_facts.yml
+
+    - name: Add quay nodes to the quay target group
+      delegate_to: localhost
+      shell: aws --no-verify-ssl elbv2 register-targets --target-group-arn "{{ ec2_stack_outputs.cloudformation.quayec2.stack_outputs.ExternalApiTargetGroupArn }}" --targets '{"Id":"{{ item }}"}'
+      loop:
+        - "{{ ec2_stack_outputs.cloudformation.quayec2.stack_outputs.Quay0PrivateIp }}"
+        - "{{ ec2_stack_outputs.cloudformation.quayec2.stack_outputs.Quay1PrivateIp }}"
+        - "{{ ec2_stack_outputs.cloudformation.quayec2.stack_outputs.Quay2PrivateIp }}"
+
+    - name: Add quay nodes to the redis target group
+      delegate_to: localhost
+      shell: aws --no-verify-ssl elbv2 register-targets --target-group-arn "{{ ec2_stack_outputs.cloudformation.quayec2.stack_outputs.RedisTargetGroupArn }}" --targets '{"Id":"{{ item }}"}'
+      loop:
+        - "{{ ec2_stack_outputs.cloudformation.quayec2.stack_outputs.Quay0PrivateIp }}"
+        - "{{ ec2_stack_outputs.cloudformation.quayec2.stack_outputs.Quay1PrivateIp }}"
+        - "{{ ec2_stack_outputs.cloudformation.quayec2.stack_outputs.Quay2PrivateIp }}"
+
+- hosts: quay
+  gather_facts: true
+  become: false
+  tasks:
+
+    - name: Get RDS facts
+      import_role:
+        name: aws
+        tasks_from: database_facts.yml
+
     - name: Wait for the reboot to complete
       wait_for_connection:
-        connect_timeout: 20
+        connect_timeout: 10
         sleep: 5
-        delay: 5
+        delay: 10
         timeout: 300
+
+    # Wait for connection often returns before we can actually successfully ssh to the host
+    - name: Pause for extra 60 seconds before connecting to the host
+      pause:
+        seconds: 60
+
+#    - name: Update packages on all hosts
+#      become: true
+#      package:
+#        name: "*"
+#        state: latest
+
+    - name: Create pull secret credentials location
+      file:
+        #name: "{{ ansible_env.XDG_RUNTIME_DIR }}/containers"
+        name: "/var/run/user/1000/containers"
+        state: directory
+        mode: "0700"
+
+    - name: Copy file with owner and permissions
+      ansible.builtin.copy:
+        src: "{{ pull_secret }}"
+        #dest: "{{ ansible_env.XDG_RUNTIME_DIR }}/containers/auth.json"
+        dest: "/var/run/user/1000/containers/auth.json"
+        mode: '0600'
 
     - name: Configure firewall
       import_role:
@@ -31,9 +102,20 @@
       import_role:
         name: quay
         tasks_from: quay-clair.yml
+      when:
+        - (clair_enabled | bool)
 
     - name: Configure quay
       import_role:
         name: quay
         tasks_from: deploy-quay
+
+#  roles:
+#    - role: redhatofficial.rhel8_stig
+#      vars:
+#        high_severity: true
+#        medium_severity: true
+#        low_severity: false
+#        unknown_severity: false
+#        enable_fips_mode: true
 

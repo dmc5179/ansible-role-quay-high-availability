@@ -33,6 +33,15 @@ Parameters:
       The subnet to launch the third quay node into.
     Type: AWS::EC2::Subnet::Id
 
+  HostedZoneId:
+    Description: The Route53 public zone ID to register the targets with, such as Z21IXYZABCZ2A4.
+    Type: String
+
+  HostedZoneName:
+    Description: The Route53 zone to register the targets with, such as example.com. Omit the trailing period.
+    Type: String
+    Default: "example.com"
+
 #  QuaySecurityGroupId:
 #    Description: >-
 #      The quay security group ID.
@@ -64,14 +73,11 @@ Metadata:
           - Quay0Subnet
           - Quay1Subnet
           - Quay2Subnet
-#      - Label:
-#          default: "Load Balancer Automation"
-#        Parameters:
-#          - AutoRegisterELB
-#          - RegisterNlbIpTargetsLambdaArn
-#          - ExternalApiTargetGroupArn
-#          - InternalApiTargetGroupArn
-#          - InternalServiceTargetGroupArn
+      - Label:
+          default: "DNS"
+        Parameters:
+        - HostedZoneName
+        - HostedZoneId
     ParameterLabels:
       VpcId:
         default: "VPC ID"
@@ -89,16 +95,172 @@ Metadata:
         default: "Red Hat Enterprise Linux CoreOS AMI ID"
       QuaySecurityGroupId:
         default: "Quay Security Group ID"
-
-#Conditions:
-#  DoRegistration: !Equals ["yes", !Ref AutoRegisterELB]
-
-#Mappings:
-#  AWSAMIRegionMap:
-#    "us-east-1":
-#    "us-east-2":
+      HostedZoneName:
+        default: "Public Hosted Zone Name"
+      HostedZoneId:
+        default: "Public Hosted Zone ID"
 
 Resources:
+
+  ExternalApiTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 10
+      #HealthCheckPath: "/readyz"
+      HealthCheckPort: 22
+      HealthCheckProtocol: TCP
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      Port: 443
+      Protocol: TCP
+      TargetType: ip
+      VpcId:
+        Ref: VpcId
+      TargetGroupAttributes:
+      - Key: deregistration_delay.timeout_seconds
+        Value: 60
+
+  RedisTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 10
+      #HealthCheckPath: "/readyz"
+      HealthCheckPort: 22
+      HealthCheckProtocol: TCP
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      Port: 6379
+      Protocol: TCP
+      TargetType: ip
+      VpcId:
+        Ref: VpcId
+      TargetGroupAttributes:
+      - Key: deregistration_delay.timeout_seconds
+        Value: 60
+
+  ExternalApiListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn:
+          Ref: ExternalApiTargetGroup
+      LoadBalancerArn:
+        Ref: ExtApiElb
+      Port: 443
+      Protocol: TCP
+
+  RedisListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn:
+          Ref: RedisTargetGroup
+      LoadBalancerArn:
+        Ref: ExtApiElb
+      Port: 6379
+      Protocol: TCP
+
+  ExtApiElb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: "quay-ext"
+      IpAddressType: ipv4
+      Subnets:
+        - !Ref Quay0Subnet
+        - !Ref Quay1Subnet
+        - !Ref Quay2Subnet
+      Type: network
+
+  ExternalApiServerRecord:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      Comment: Alias record for the API server
+      HostedZoneId: !Ref HostedZoneId
+      RecordSets:
+      - Name: !Join [".", [ "quay", !Ref HostedZoneName] ]
+        Type: A
+        AliasTarget:
+          HostedZoneId: !GetAtt ExtApiElb.CanonicalHostedZoneID
+          DNSName: !GetAtt ExtApiElb.DNSName
+
+  RedisServerRecord:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      Comment: Alias record for the Redis server
+      HostedZoneId: !Ref HostedZoneId
+      RecordSets:
+      - Name: !Join [".", [ "redis", !Ref HostedZoneName] ]
+        Type: A
+        AliasTarget:
+          HostedZoneId: !GetAtt ExtApiElb.CanonicalHostedZoneID
+          DNSName: !GetAtt ExtApiElb.DNSName
+
+  ClairServerRecord:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      Comment: Alias record for the Redis server
+      HostedZoneId: !Ref HostedZoneId
+      RecordSets:
+      - Name: !Join [".", [ "clair", !Ref HostedZoneName] ]
+        Type: A
+        AliasTarget:
+          HostedZoneId: !GetAtt ExtApiElb.CanonicalHostedZoneID
+          DNSName: !GetAtt ExtApiElb.DNSName
+
+  QuayIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: "Allow"
+          Principal:
+            Service:
+            - "ec2.amazonaws.com"
+          Action:
+          - "sts:AssumeRole"
+      Path: "/"
+      Policies:
+      - PolicyName: "quay-policy"
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Effect: "Allow"
+            Action: "s3:ListBucket"
+            Resource: "arn:aws:s3:::quaydan"
+          - Effect: "Allow"
+            Action: "s3:GetBucketLocation"
+            Resource: "arn:aws:s3:::quaydan"
+          - Effect: "Allow"
+            Action: "s3:ListBucketMultipartUploads"
+            Resource: "arn:aws:s3:::quaydan"
+          - Effect: "Allow"
+            Action: "s3:PutBucketCORS"
+            Resource: "arn:aws:s3:::quaydan"
+          - Effect: "Allow"
+            Action: "s3:PutObject"
+            Resource: "arn:aws:s3:::quaydan"
+          - Effect: "Allow"
+            Action: "s3:GetObject"
+            Resource: "arn:aws:s3:::quaydan"
+          - Effect: "Allow"
+            Action: "s3:DeleteObject"
+            Resource: "arn:aws:s3:::quaydan"
+          - Effect: "Allow"
+            Action: "s3:ListMultipartUploadParts"
+            Resource: "arn:aws:s3:::quaydan"
+          - Effect: "Allow"
+            Action: "s3:AbortMultipartUpload"
+            Resource: "arn:aws:s3:::quaydan"
+
+  QuayInstanceProfile:
+    Type: "AWS::IAM::InstanceProfile"
+    Properties:
+      Path: "/"
+      Roles:
+      - Ref: "QuayIamRole"
 
   QuaySecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -118,6 +280,10 @@ Resources:
           FromPort: 8080
           ToPort: 8080
           CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          CidrIp: 0.0.0.0/0
       VpcId: !Ref VpcId
       Tags:
         - Key: "Name"
@@ -133,7 +299,7 @@ Resources:
         Ebs:
           VolumeSize: "50"
           VolumeType: "gp2"
-      #IamInstanceProfile: !Ref QuayInstanceProfileName
+      IamInstanceProfile: !Ref QuayInstanceProfile
       InstanceType: !Ref QuayInstanceType
       NetworkInterfaces:
         - AssociatePublicIpAddress: "true"
@@ -148,8 +314,7 @@ Resources:
         Fn::Base64:
           !Sub |
             #!/bin/bash
-            sudo dnf -y update
-            sudo dnf -y install podman vim firewalld python3
+            sudo dnf -y install python3
       Tags:
         - Key: Name
           Value: !Join ["-", ["quay", "0"]]
@@ -164,7 +329,7 @@ Resources:
           Ebs:
             VolumeSize: "50"
             VolumeType: "gp2"
-      #IamInstanceProfile: !Ref QuayInstanceProfileName
+      IamInstanceProfile: !Ref QuayInstanceProfile
       InstanceType: !Ref QuayInstanceType
       NetworkInterfaces:
         - AssociatePublicIpAddress: "true"
@@ -179,8 +344,7 @@ Resources:
         Fn::Base64:
           !Sub |
             #!/bin/bash
-            sudo dnf -y update
-            sudo dnf -y install podman vim firewalld python3
+            sudo dnf -y install python3
       Tags:
         - Key: Name
           Value: !Join ["-", ["quay", "1"]]
@@ -195,7 +359,7 @@ Resources:
           Ebs:
             VolumeSize: "50"
             VolumeType: "gp2"
-      #IamInstanceProfile: !Ref QuayInstanceProfileName
+      IamInstanceProfile: !Ref QuayInstanceProfile
       InstanceType: !Ref QuayInstanceType
       NetworkInterfaces:
         - AssociatePublicIpAddress: "true"
@@ -211,7 +375,7 @@ Resources:
           !Sub |
             #!/bin/bash
             sudo dnf -y update
-            sudo dnf -y install podman vim firewalld python3
+            sudo dnf -y install python3
       Tags:
         - Key: Name
           Value: !Join ["-", ["quay", "2"]]
@@ -229,3 +393,23 @@ Outputs:
   Quay2PublicIp:
     Description: The quay 2 node public IP address.
     Value: !GetAtt Quay2.PublicIp
+
+  Quay0PrivateIp:
+    Description: The quay 0 node private IP address.
+    Value: !GetAtt Quay0.PrivateIp
+
+  Quay1PrivateIp:
+    Description: The quay 1 node private IP address.
+    Value: !GetAtt Quay1.PrivateIp
+
+  Quay2PrivateIp:
+    Description: The quay 2 node private IP address.
+    Value: !GetAtt Quay2.PrivateIp
+
+  ExternalApiTargetGroupArn:
+    Description: ARN of the external API target group.
+    Value: !Ref ExternalApiTargetGroup
+
+  RedisTargetGroupArn:
+    Description: ARN of the redis target group
+    Value: !Ref RedisTargetGroup

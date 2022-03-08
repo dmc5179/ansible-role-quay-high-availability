@@ -15,8 +15,8 @@ DISTRIBUTED_STORAGE_CONFIG:
     default:
       - S3Storage
       - storage_path: /datastorage/registry
-        s3_bucket: quaydan
-        host: 's3.us-east-1.amazonaws.com'
+        s3_bucket: "{{ s3_bucket }}"
+        host: "{{ s3_endpoint }}"
 DISTRIBUTED_STORAGE_DEFAULT_LOCATIONS: []
 DISTRIBUTED_STORAGE_PREFERENCE:
     - default
@@ -50,7 +50,7 @@ FEATURE_REPO_MIRROR: {{ feature_repo_mirror }}
 FEATURE_REQUIRE_TEAM_INVITE: true
 FEATURE_RESTRICTED_V1_PUSH: true
 FEATURE_SECURITY_NOTIFICATIONS: false
-FEATURE_SECURITY_SCANNER: true
+FEATURE_SECURITY_SCANNER: {{ clair_enabled }}
 FEATURE_SIGNING: false
 FEATURE_STORAGE_REPLICATION: false
 FEATURE_TEAM_SYNCING: false
@@ -73,20 +73,20 @@ LDAP_URI: ldap://localhost
 LOG_ARCHIVE_LOCATION: default
 LOGS_MODEL: database
 LOGS_MODEL_CONFIG: {}
-MAIL_DEFAULT_SENDER: support@quay.io
+MAIL_DEFAULT_SENDER: "{{ email_address }}"
 MAIL_PORT: 587
 MAIL_USE_AUTH: false
 MAIL_USE_TLS: false
 PREFERRED_URL_SCHEME: https
-REGISTRY_TITLE: Project Quay
-REGISTRY_TITLE_SHORT: Project Quay
+REGISTRY_TITLE: Red Hat Container Registry
+REGISTRY_TITLE_SHORT: Red Hat Container Registry
 REPO_MIRROR_INTERVAL: 30
 REPO_MIRROR_TLS_VERIFY: true
 SEARCH_MAX_RESULT_PAGE_COUNT: 10
 SEARCH_RESULTS_PER_PAGE: 10
 SECRET_KEY: a1dc8652-66c0-496a-a908-27ffe25af642
 SECURITY_SCANNER_INDEXING_INTERVAL: 5
-SECURITY_SCANNER_V4_ENDPOINT: http://clair.dns.podman:8080
+SECURITY_SCANNER_V4_ENDPOINT: http://{{ clair_hostname }}:{{ clair_port }}
 SECURITY_SCANNER_V4_PSK: ZjA3MWpmYzRjZ2hiZA==
 SERVER_HOSTNAME: {{ quay_hostname }}
 SETUP_COMPLETE: true
@@ -102,7 +102,7 @@ USE_CDN: false
 USER_EVENTS_REDIS:
     host: '{{ redis_hostname }}'
     password: '{{ redis_password }}'
-    port: '{{ redis_port }}'
+    port: {{ redis_port }}
 USER_RECOVERY_TOKEN_LIFETIME: 30m
 USERFILES_LOCATION: default
 SSL_PROTOCOLS : ['TLSv1.1','TLSv1.2']

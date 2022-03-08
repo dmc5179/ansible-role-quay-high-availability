@@ -41,4 +41,15 @@
       #QuayInstanceProfileName:
       QuayInstanceType: "m5.xlarge"
       VpcId: "{{ vpc_id }}"
+      HostedZoneId: "{{ hosted_zone_id }}"
+      HostedZoneName: "{{ hosted_zone_name }}"
       #VpcCidr: "{{ vpc_cidr }}"
+#  register: ec2_stack_outputs
+#
+#- name: Add bootstrap node to the api internal target group
+#  delegate_to: localhost
+#  shell: aws --no-verify-ssl elbv2 register-targets --target-group-arn "{{ ec2_stack_outputs.cloudformation.quayec2.stack_outputs.ExternalApiTargetGroupArn }}" --targets '{"Id":"{{ item }}"}'
+#  loop:
+#    - "{{ ec2_stack_outputs.cloudformation.quayec2.stack_outputs.Quay0PublicIp }}"
+#    - "{{ ec2_stack_outputs.cloudformation.quayec2.stack_outputs.Quay1PublicIp }}"
+#    - "{{ ec2_stack_outputs.cloudformation.quayec2.stack_outputs.Quay2PublicIp }}"
