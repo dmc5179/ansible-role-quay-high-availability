@@ -22,6 +22,7 @@
     state: enabled
   with_items:
     - '443/tcp'
+    - '6379/tcp'
 
 - name: Enable quay config firewalld ports
   become: true
