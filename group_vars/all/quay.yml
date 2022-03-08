@@ -1,0 +1,79 @@
+---
+# defaults file for quay-ansible
+
+fips_enabled: true
+
+quay_config_mode: false
+
+quay_hostname: 'quay.example.io'
+quay_san: ''
+quay_image: 'registry.redhat.io/quay/quay-rhel8:v3.6.4'
+redis_hostname: 'redis.example.io'
+#redis_hostname: 'redis'
+redis_password: 'strongpassword'
+redis_port: 6379
+redis_image: "registry.redhat.io/rhel8/redis-5:1"
+
+clair_hostname: clair.example.io
+clair_port: 443
+
+postgresql_user: 'quayuser'
+postgresql_password: 'quaypass'
+postgresql_hostname: 'postgresql-quay.dns.podman'
+#postgresql_hostname: 'postgresql-quay'
+postgresql_db: 'quay'
+postgresql_port: 5432
+postgresql_image:
+rds: false
+podman: true
+runtime: "podman"
+
+clair_enabled: false
+
+clair_image: "registry.redhat.io/quay/clair-rhel8:v3.6.4"
+
+# @var postgresql_quay_db: clair  # The postgres clair database
+postgresql_quay_db: clair
+
+# @var postgresql_quay_user: quay # The postgres clair database user
+postgresql_quay_user: quay
+
+# @var postgresql_quay_user_password: changeme # The postgres quay user password
+postgresql_quay_user_password: changeme
+
+# @var quay_config_password: 'changeme' # The password for the quay config UI
+quay_config_password: changeme
+
+# @var QUAY_CONFIG_PORT: '8443' # The port to access the quay configuration pod
+quay_config_port: 8080
+
+# @var QUAY_CONFIG_TAR: 'undefined' # After running the quay configuration download the tarball and set the path on this variable
+# QUAY_CONFIG_TAR:  "PATH_TO_CONFIG_TAR_FILE"
+
+# @var QUAY_HTTP_PORT: '80' # The port to access Quay if TLS is not enabled
+quay_http_port: 80
+
+# @var QUAY_HTTPS_PORT: '443' # The port to access Quay when TLS is enabled
+quay_https_port: 443
+
+### Clair ###
+# @var CLAIR_ENDPOINT: '{{ QUAY_ENDPOINT }}' # The FQDN for your clair server, defaults to same as quay
+#clair_endpoint: "clair.dns.podman"
+clair_endpoint: 'clair'
+
+# @var CLAIR_ENCRYPT: true # Boolean on if Clair should run on TLS
+clair_encrypt: true
+
+### Redis ###
+# @var QUAY_REDIS_DEPLOY: 'true' # Boolean to decide if Redis should be deployed
+quay_redis_deploy: true
+
+# @var QUAY_ROOT_DIR: '/opt/quay' # The directory where quay and clair configurations will be placed
+quay_root_dir: /opt/quay
+
+
+#################
+# Quay Features
+#################
+
+feature_repo_mirror: false

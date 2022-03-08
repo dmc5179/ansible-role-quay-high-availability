@@ -1,0 +1,6 @@
+---
+
+rds_stack_name: "quayrds"
+ec2_stack_name: "quayec2"
+
+pull_secret: 'pull-secret.txt'

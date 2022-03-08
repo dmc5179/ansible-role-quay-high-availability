@@ -1,0 +1,20 @@
+
+
+ec2_key_pair_name: ""
+
+subnets:
+  - id: 'subnet-'
+  - id: 'subnet-'
+  - id: 'subnet-'
+
+aws_ssl_enabled: true
+
+email_address: ''
+fallback_email_address: ''
+
+s3_bucket: ""
+
+s3_endpoint: "s3.us-east-1.amazonaws.com"
+
+hosted_zone_id: ""
+hosted_zone_name: ""
